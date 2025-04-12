@@ -104,7 +104,9 @@ export default function TradeInForm() {
 
   const [error, setError] = useState("");
 
-  // Fetch functions with overlay spinner controls
+  // -----------------------------
+  // FETCH FUNCTIONS
+  // -----------------------------
   const fetchYears = async () => {
     setIsStarted(true);
     try {
@@ -149,6 +151,9 @@ export default function TradeInForm() {
     }
   };
 
+  // -----------------------------
+  // MAIN SUBMISSION (MARKET VALUE)
+  // -----------------------------
   const fetchMarketValues = async () => {
     setIsStarted(true);
     try {
@@ -184,8 +189,7 @@ export default function TradeInForm() {
           const webhookRes = await axios.post(webhookUrl, payload);
 
           if (webhookRes.status === 200) {
-            // Build the final URL by starting with the environment variable endUrl,
-            // setting the hash to "done", and adding UTM parameters based on the form data.
+            // Build the final URL using the environment variable endUrl
             const finalUrl = new URL(endUrl);
             finalUrl.hash = "done";
             finalUrl.searchParams.set("utm_name", formData.name);
@@ -204,29 +208,33 @@ export default function TradeInForm() {
     }
   };
 
-  // Fetch initial data for the form
+  // -----------------------------
+  // HOOKS
+  // -----------------------------
   useEffect(() => {
     fetchYears();
   }, []);
 
-  // When year changes, fetch makes
   useEffect(() => {
     if (formData.year) {
       fetchMakes(formData.year);
     }
   }, [formData.year]);
 
-  // When make changes, fetch models
   useEffect(() => {
     if (formData.year && formData.make) {
       fetchModels(formData.year, formData.make);
     }
   }, [formData.year, formData.make]);
 
-  // Handlers and basic validation functions
+  // -----------------------------
+  // HANDLERS & VALIDATION
+  // -----------------------------
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prevData) => ({ ...prevData, [name]: value }));
+    // For the "miles" field, remove any commas to preserve proper numeric format
+    const sanitizedValue = name === "miles" ? value.replace(/,/g, "") : value;
+    setFormData((prevData) => ({ ...prevData, [name]: sanitizedValue }));
   };
 
   const handleSelectChange = (name, value) => {
@@ -266,7 +274,6 @@ export default function TradeInForm() {
       return;
     }
 
-    // For step 2, check validations and then submit
     if (validateStep2()) {
       try {
         await fetchMarketValues();
@@ -290,10 +297,12 @@ export default function TradeInForm() {
     setIsLoading(false);
   };
 
+  // -----------------------------
+  // RENDER
+  // -----------------------------
   return (
-    // Removed the "mt-32" class so that there's no extra top margin above the form fields.
+    // The container now has no extra top margin
     <div className="w-full mx-auto p-5 bg-white rounded-lg shadow-md">
-      {/* Overlay spinner */}
       {isStarted && (
         <div className="absolute top-0 left-0 h-screen w-screen opacity-70 bg-black">
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-10">
