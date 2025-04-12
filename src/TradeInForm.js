@@ -18,8 +18,7 @@ const customInputStyle = {
 
 const authKey = process.env.REACT_APP_AUTHKEY;
 const webhookUrl = process.env.REACT_APP_WEBHOOK_URL;
-// New environment variable for redirect
-const endUrl = process.env.REACT_APP_END_URL;
+const endUrl = process.env.REACT_APP_END_URL; // New dynamic redirect URL
 
 const api = axios.create({
   baseURL: "https://api.vehicledatabases.com",
@@ -151,7 +150,7 @@ export default function TradeInForm() {
         .then(async (res) => {
           const marketValueData = res.data.data.market_value.market_value_data;
 
-          // Convert market value data into JSON for the webhook
+          // Convert market value data for webhook
           const objectArray = marketValueData.map((item) => {
             const marketValueObject = item["market value"].reduce(
               (acc, curr) => {
@@ -174,7 +173,8 @@ export default function TradeInForm() {
           const payload = { marketValue: jsonObject, form_data: formData };
           const webhookRes = await axios.post(webhookUrl, payload);
 
-          // On a successful webhook response, perform a dynamic redirect.
+          // On a successful call, redirect using the dynamic end URL if set,
+          // otherwise fallback to a default URL.
           if (webhookRes.status === 200) {
             const redirectUrl =
               endUrl || "https://trade-in.airparkdodgechryslerjeeps.com/#done";
@@ -248,7 +248,7 @@ export default function TradeInForm() {
       if (validateStep2()) {
         try {
           await fetchMarketValues();
-          // Reset the form only if no redirect occurred.
+          // Reset the form after submission if no redirect occurs.
           setFormData({
             year: "",
             make: "",
@@ -270,7 +270,8 @@ export default function TradeInForm() {
   };
 
   return (
-    <div className="max-w-md mt-32 mx-auto p-5 bg-white rounded-lg shadow-md">
+    // Modified container: removed 'mt-32', 'mx-auto', and 'max-w-md' to allow full width/height for embedding.
+    <div className="w-full h-full p-5 bg-white rounded-lg shadow-md" style={{ position: "relative" }}>
       {isStarted && (
         <div className="absolute top-0 left-0 h-screen w-screen opacity-70 bg-black">
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-10">
@@ -283,10 +284,7 @@ export default function TradeInForm() {
         {step === 1 ? (
           <>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="state"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="state">
                 State
               </label>
               <select
@@ -307,10 +305,7 @@ export default function TradeInForm() {
               </select>
             </div>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="year"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="year">
                 Year
               </label>
               <select
@@ -331,10 +326,7 @@ export default function TradeInForm() {
               </select>
             </div>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="make"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="make">
                 Make
               </label>
               <select
@@ -355,10 +347,7 @@ export default function TradeInForm() {
               </select>
             </div>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="model"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="model">
                 Model
               </label>
               <select
@@ -379,10 +368,7 @@ export default function TradeInForm() {
               </select>
             </div>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="miles"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="miles">
                 Miles
               </label>
               <input
@@ -406,10 +392,7 @@ export default function TradeInForm() {
         ) : (
           <>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="name"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="name">
                 Name
               </label>
               <input
@@ -423,10 +406,7 @@ export default function TradeInForm() {
               />
             </div>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="email"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="email">
                 Email
               </label>
               <input
@@ -440,10 +420,7 @@ export default function TradeInForm() {
               />
             </div>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="phone"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="phone">
                 Phone
               </label>
               <input
@@ -464,8 +441,7 @@ export default function TradeInForm() {
               {isLoading ? "Submitting..." : "Get My Trade-In Value"}
             </button>
             <p className="text-sm text-red-600 mt-2">
-              Warning! Make sure your information is correct because we will
-              text/email you the final report!
+              Warning! Make sure your information is correct because we will text/email you the final report!
             </p>
           </>
         )}
