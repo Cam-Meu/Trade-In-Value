@@ -18,6 +18,8 @@ const customInputStyle = {
 
 const authKey = process.env.REACT_APP_AUTHKEY;
 const webhookUrl = process.env.REACT_APP_WEBHOOK_URL;
+// New environment variable for redirect
+const endUrl = process.env.REACT_APP_END_URL;
 
 const api = axios.create({
   baseURL: "https://api.vehicledatabases.com",
@@ -101,8 +103,8 @@ export default function TradeInForm() {
   const fetchYears = async () => {
     try {
       await api.get("/ymm-specs/options/v2/year").then(function (response) {
-        const year = ["Select Years", ...response.data.years];
-        setYears(year);
+        const yearOptions = ["Select Years", ...response.data.years];
+        setYears(yearOptions);
         setIsStarted(false);
       });
     } catch (error) {
@@ -115,9 +117,9 @@ export default function TradeInForm() {
       await api
         .get(`/ymm-specs/options/v2/make/${year}`)
         .then(function (response) {
-          let makes = ["Select Makes"];
-          makes.push(...response.data.makes);
-          setMakes(makes);
+          let makesOptions = ["Select Makes"];
+          makesOptions.push(...response.data.makes);
+          setMakes(makesOptions);
           setIsStarted(false);
         });
     } catch (error) {
@@ -130,9 +132,9 @@ export default function TradeInForm() {
       await api
         .get(`/ymm-specs/options/v2/model/${year}/${make}`)
         .then(function (response) {
-          let models = ["Select Models"];
-          models.push(...response.data.models);
-          setModels(models);
+          let modelsOptions = ["Select Models"];
+          modelsOptions.push(...response.data.models);
+          setModels(modelsOptions);
           setIsStarted(false);
         });
     } catch (error) {
@@ -149,7 +151,7 @@ export default function TradeInForm() {
         .then(async (res) => {
           const marketValueData = res.data.data.market_value.market_value_data;
 
-          // convert into a json type because make.com
+          // Convert market value data into JSON for the webhook
           const objectArray = marketValueData.map((item) => {
             const marketValueObject = item["market value"].reduce(
               (acc, curr) => {
@@ -171,9 +173,12 @@ export default function TradeInForm() {
 
           const payload = { marketValue: jsonObject, form_data: formData };
           const webhookRes = await axios.post(webhookUrl, payload);
+
+          // On a successful webhook response, perform a dynamic redirect.
           if (webhookRes.status === 200) {
-            window.location.href =
-              "https://trade-in.airparkdodgechryslerjeeps.com/#done";
+            const redirectUrl =
+              endUrl || "https://trade-in.airparkdodgechryslerjeeps.com/#done";
+            window.location.href = redirectUrl;
           }
           console.log(webhookRes);
         });
@@ -243,6 +248,7 @@ export default function TradeInForm() {
       if (validateStep2()) {
         try {
           await fetchMarketValues();
+          // Reset the form only if no redirect occurred.
           setFormData({
             year: "",
             make: "",
@@ -256,9 +262,7 @@ export default function TradeInForm() {
           setStep(1);
         } catch (error) {
           console.error("Error:", error);
-          setError(
-            "There was an error submitting your request. Please try again."
-          );
+          setError("There was an error submitting your request. Please try again.");
         }
       }
     }
@@ -281,18 +285,22 @@ export default function TradeInForm() {
             <div className="space-y-2">
               <label
                 className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="state">
+                htmlFor="state"
+              >
                 State
               </label>
               <select
                 name="state"
                 style={customInputStyle}
                 value={formData.state}
-                onChange={(e) => handleSelectChange("state", e.target.value)}>
+                onChange={(e) => handleSelectChange("state", e.target.value)}
+              >
                 {states.map((state) => (
                   <option
+                    key={state}
                     value={state}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
+                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
+                  >
                     {state}
                   </option>
                 ))}
@@ -301,18 +309,22 @@ export default function TradeInForm() {
             <div className="space-y-2">
               <label
                 className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="year">
+                htmlFor="year"
+              >
                 Year
               </label>
               <select
                 name="year"
                 style={customInputStyle}
                 value={formData.year}
-                onChange={(e) => handleSelectChange("year", e.target.value)}>
+                onChange={(e) => handleSelectChange("year", e.target.value)}
+              >
                 {years.map((year) => (
                   <option
+                    key={year}
                     value={year}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
+                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
+                  >
                     {year}
                   </option>
                 ))}
@@ -321,18 +333,22 @@ export default function TradeInForm() {
             <div className="space-y-2">
               <label
                 className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="make">
+                htmlFor="make"
+              >
                 Make
               </label>
               <select
                 name="make"
                 style={customInputStyle}
                 value={formData.make}
-                onChange={(e) => handleSelectChange("make", e.target.value)}>
+                onChange={(e) => handleSelectChange("make", e.target.value)}
+              >
                 {makes.map((make) => (
                   <option
+                    key={make}
                     value={make}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
+                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
+                  >
                     {make}
                   </option>
                 ))}
@@ -341,18 +357,22 @@ export default function TradeInForm() {
             <div className="space-y-2">
               <label
                 className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="model">
+                htmlFor="model"
+              >
                 Model
               </label>
               <select
                 name="model"
                 style={customInputStyle}
                 value={formData.model}
-                onChange={(e) => handleSelectChange("model", e.target.value)}>
+                onChange={(e) => handleSelectChange("model", e.target.value)}
+              >
                 {models.map((model) => (
                   <option
+                    key={model}
                     value={model}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
+                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
+                  >
                     {model}
                   </option>
                 ))}
@@ -361,7 +381,8 @@ export default function TradeInForm() {
             <div className="space-y-2">
               <label
                 className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="miles">
+                htmlFor="miles"
+              >
                 Miles
               </label>
               <input
@@ -377,7 +398,8 @@ export default function TradeInForm() {
             <button
               type="submit"
               className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
-              disabled={isLoading}>
+              disabled={isLoading}
+            >
               {isLoading ? "Loading..." : "Next"}
             </button>
           </>
@@ -386,7 +408,8 @@ export default function TradeInForm() {
             <div className="space-y-2">
               <label
                 className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="name">
+                htmlFor="name"
+              >
                 Name
               </label>
               <input
@@ -402,7 +425,8 @@ export default function TradeInForm() {
             <div className="space-y-2">
               <label
                 className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="email">
+                htmlFor="email"
+              >
                 Email
               </label>
               <input
@@ -418,7 +442,8 @@ export default function TradeInForm() {
             <div className="space-y-2">
               <label
                 className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="phone">
+                htmlFor="phone"
+              >
                 Phone
               </label>
               <input
@@ -434,7 +459,8 @@ export default function TradeInForm() {
             <button
               type="submit"
               className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
-              disabled={isLoading}>
+              disabled={isLoading}
+            >
               {isLoading ? "Submitting..." : "Get My Trade-In Value"}
             </button>
             <p className="text-sm text-red-600 mt-2">
