@@ -59,11 +59,10 @@ export default function TradeInForm() {
 
   const fetchYears = async () => {
     try {
-      await api.get("/ymm-specs/options/v2/year").then((response) => {
-        const yearOptions = ["Select Years", ...response.data.years];
-        setYears(yearOptions);
-        setIsStarted(false);
-      });
+      const res = await api.get("/ymm-specs/options/v2/year");
+      const yearOptions = ["Select Years", ...res.data.years];
+      setYears(yearOptions);
+      setIsStarted(false);
     } catch (error) {
       console.log("Error fetching 'years' data", error);
     }
@@ -71,12 +70,11 @@ export default function TradeInForm() {
 
   const fetchMakes = async (year) => {
     try {
-      await api.get(`/ymm-specs/options/v2/make/${year}`).then((response) => {
-        let makesOptions = ["Select Makes"];
-        makesOptions.push(...response.data.makes);
-        setMakes(makesOptions);
-        setIsStarted(false);
-      });
+      const res = await api.get(`/ymm-specs/options/v2/make/${year}`);
+      let makesOptions = ["Select Makes"];
+      makesOptions.push(...res.data.makes);
+      setMakes(makesOptions);
+      setIsStarted(false);
     } catch (error) {
       console.log("Error fetching 'makes' data", error);
     }
@@ -84,12 +82,11 @@ export default function TradeInForm() {
 
   const fetchModels = async (year, make) => {
     try {
-      await api.get(`/ymm-specs/options/v2/model/${year}/${make}`).then((response) => {
-        let modelsOptions = ["Select Models"];
-        modelsOptions.push(...response.data.models);
-        setModels(modelsOptions);
-        setIsStarted(false);
-      });
+      const res = await api.get(`/ymm-specs/options/v2/model/${year}/${make}`);
+      let modelsOptions = ["Select Models"];
+      modelsOptions.push(...res.data.models);
+      setModels(modelsOptions);
+      setIsStarted(false);
     } catch (error) {
       console.log("Error fetching 'models' data", error);
     }
@@ -97,39 +94,33 @@ export default function TradeInForm() {
 
   const fetchMarketValues = async () => {
     try {
-      await api
-        .get(
-          `/market-value/v2/ymm/${formData.year}/${formData.make}/${formData.model}?state=${formData.state}&mileage=${formData.miles}`
-        )
-        .then(async (res) => {
-          const marketValueData = res.data.data.market_value.market_value_data;
-          const objectArray = marketValueData.map((item) => {
-            const marketValueObject = item["market value"].reduce(
-              (acc, curr) => {
-                acc[curr.Condition] = {
-                  Trade_In: curr["Trade-In"],
-                  Private_Party: curr["Private Party"],
-                  Dealer_Retail: curr["Dealer Retail"],
-                };
-                return acc;
-              },
-              {}
-            );
-            return { trim: item.trim, market_value: marketValueObject };
-          });
-          const jsonObject = objectArray.reduce((acc, item, index) => {
-            acc[`item${index}`] = item;
-            return acc;
-          }, {});
+      const res = await api.get(
+        `/market-value/v2/ymm/${formData.year}/${formData.make}/${formData.model}?state=${formData.state}&mileage=${formData.miles}`
+      );
+      const marketValueData = res.data.data.market_value.market_value_data;
+      const objectArray = marketValueData.map((item) => {
+        const marketValueObject = item["market value"].reduce((acc, curr) => {
+          acc[curr.Condition] = {
+            Trade_In: curr["Trade-In"],
+            Private_Party: curr["Private Party"],
+            Dealer_Retail: curr["Dealer Retail"],
+          };
+          return acc;
+        }, {});
+        return { trim: item.trim, market_value: marketValueObject };
+      });
+      const jsonObject = objectArray.reduce((acc, item, index) => {
+        acc[`item${index}`] = item;
+        return acc;
+      }, {});
 
-          const payload = { marketValue: jsonObject, form_data: formData };
-          const webhookRes = await axios.post(webhookUrl, payload);
-          if (webhookRes.status === 200) {
-            const redirectUrl = endUrl || "https://trade-in.airparkdodgechryslerjeeps.com/#done";
-            window.location.href = redirectUrl;
-          }
-          console.log(webhookRes);
-        });
+      const payload = { marketValue: jsonObject, form_data: formData };
+      const webhookRes = await axios.post(webhookUrl, payload);
+      if (webhookRes.status === 200) {
+        const redirectUrl = endUrl || "https://trade-in.airparkdodgechryslerjeeps.com/#done";
+        window.location.href = redirectUrl;
+      }
+      console.log(webhookRes);
     } catch (error) {
       console.log("Error fetching 'market value' data", error);
       setError("There was an error submitting your request. Please try again.");
@@ -157,11 +148,11 @@ export default function TradeInForm() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prevData) => ({ ...prevData, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (name, value) => {
-    setFormData((prevData) => ({ ...prevData, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const validateStep1 = () => {
@@ -196,7 +187,6 @@ export default function TradeInForm() {
       if (validateStep2()) {
         try {
           await fetchMarketValues();
-          // Only reset if not redirected
           setFormData({
             year: "",
             make: "",
@@ -218,10 +208,14 @@ export default function TradeInForm() {
   };
 
   return (
-    // When embedded, remove the fixed height class so that the container sizes naturally.
-    <div className={isEmbedded ? "w-full p-5 bg-white rounded-lg shadow-md" : "w-full h-full p-5 bg-white rounded-lg shadow-md"} style={{ position: "relative" }}>
+    // Use a container with natural height when embedded
+    <div
+      className={`w-full ${isEmbedded ? "p-5 bg-white rounded-lg shadow-md" : "h-full p-5 bg-white rounded-lg shadow-md"}`}
+      style={{ position: "relative" }}
+    >
+      {/* Render the loading overlay only if not embedded */}
       {(!isEmbedded && isStarted) && (
-        <div className="absolute top-0 left-0 h-screen w-screen opacity-70 bg-black">
+        <div className="absolute top-0 left-0 w-full opacity-70 bg-black" style={{ height: "100vh" }}>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-10">
             <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
@@ -373,8 +367,7 @@ export default function TradeInForm() {
               {isLoading ? "Submitting..." : "Get My Trade-In Value"}
             </button>
             <p className="text-sm text-red-600 mt-2">
-              Warning! Make sure your information is correct because we will
-              text/email you the final report!
+              Warning! Make sure your information is correct because we will text/email you the final report!
             </p>
           </>
         )}
