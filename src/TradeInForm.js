@@ -18,7 +18,7 @@ const customInputStyle = {
 
 const authKey = process.env.REACT_APP_AUTHKEY;
 const webhookUrl = process.env.REACT_APP_WEBHOOK_URL;
-const endUrl = process.env.REACT_APP_END_URL; // New dynamic redirect URL
+const endUrl = process.env.REACT_APP_END_URL;
 
 const api = axios.create({
   baseURL: "https://api.vehicledatabases.com",
@@ -28,59 +28,17 @@ const api = axios.create({
 });
 
 const states = [
-  "AL",
-  "AK",
-  "AZ",
-  "AR",
-  "CA",
-  "CO",
-  "CT",
-  "DE",
-  "FL",
-  "GA",
-  "HI",
-  "ID",
-  "IL",
-  "IN",
-  "IA",
-  "KS",
-  "KY",
-  "LA",
-  "ME",
-  "MD",
-  "MA",
-  "MI",
-  "MN",
-  "MS",
-  "MO",
-  "MT",
-  "NE",
-  "NV",
-  "NH",
-  "NJ",
-  "NM",
-  "NY",
-  "NC",
-  "ND",
-  "OH",
-  "OK",
-  "OR",
-  "PA",
-  "RI",
-  "SC",
-  "SD",
-  "TN",
-  "TX",
-  "UT",
-  "VT",
-  "VA",
-  "WA",
-  "WV",
-  "WI",
-  "WY",
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
 ];
 
 export default function TradeInForm() {
+  // Detect if the app is embedded in an iframe.
+  const isEmbedded = typeof window !== "undefined" && window.self !== window.top;
+
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     year: "",
@@ -101,7 +59,7 @@ export default function TradeInForm() {
 
   const fetchYears = async () => {
     try {
-      await api.get("/ymm-specs/options/v2/year").then(function (response) {
+      await api.get("/ymm-specs/options/v2/year").then((response) => {
         const yearOptions = ["Select Years", ...response.data.years];
         setYears(yearOptions);
         setIsStarted(false);
@@ -113,14 +71,12 @@ export default function TradeInForm() {
 
   const fetchMakes = async (year) => {
     try {
-      await api
-        .get(`/ymm-specs/options/v2/make/${year}`)
-        .then(function (response) {
-          let makesOptions = ["Select Makes"];
-          makesOptions.push(...response.data.makes);
-          setMakes(makesOptions);
-          setIsStarted(false);
-        });
+      await api.get(`/ymm-specs/options/v2/make/${year}`).then((response) => {
+        let makesOptions = ["Select Makes"];
+        makesOptions.push(...response.data.makes);
+        setMakes(makesOptions);
+        setIsStarted(false);
+      });
     } catch (error) {
       console.log("Error fetching 'makes' data", error);
     }
@@ -128,14 +84,12 @@ export default function TradeInForm() {
 
   const fetchModels = async (year, make) => {
     try {
-      await api
-        .get(`/ymm-specs/options/v2/model/${year}/${make}`)
-        .then(function (response) {
-          let modelsOptions = ["Select Models"];
-          modelsOptions.push(...response.data.models);
-          setModels(modelsOptions);
-          setIsStarted(false);
-        });
+      await api.get(`/ymm-specs/options/v2/model/${year}/${make}`).then((response) => {
+        let modelsOptions = ["Select Models"];
+        modelsOptions.push(...response.data.models);
+        setModels(modelsOptions);
+        setIsStarted(false);
+      });
     } catch (error) {
       console.log("Error fetching 'models' data", error);
     }
@@ -149,8 +103,6 @@ export default function TradeInForm() {
         )
         .then(async (res) => {
           const marketValueData = res.data.data.market_value.market_value_data;
-
-          // Convert market value data for webhook
           const objectArray = marketValueData.map((item) => {
             const marketValueObject = item["market value"].reduce(
               (acc, curr) => {
@@ -172,12 +124,8 @@ export default function TradeInForm() {
 
           const payload = { marketValue: jsonObject, form_data: formData };
           const webhookRes = await axios.post(webhookUrl, payload);
-
-          // On a successful call, redirect using the dynamic end URL if set,
-          // otherwise fallback to a default URL.
           if (webhookRes.status === 200) {
-            const redirectUrl =
-              endUrl || "https://trade-in.airparkdodgechryslerjeeps.com/#done";
+            const redirectUrl = endUrl || "https://trade-in.airparkdodgechryslerjeeps.com/#done";
             window.location.href = redirectUrl;
           }
           console.log(webhookRes);
@@ -248,7 +196,7 @@ export default function TradeInForm() {
       if (validateStep2()) {
         try {
           await fetchMarketValues();
-          // Reset the form after submission if no redirect occurs.
+          // Only reset if not redirected
           setFormData({
             year: "",
             make: "",
@@ -270,9 +218,9 @@ export default function TradeInForm() {
   };
 
   return (
-    // Modified container: removed 'mt-32', 'mx-auto', and 'max-w-md' to allow full width/height for embedding.
-    <div className="w-full h-full p-5 bg-white rounded-lg shadow-md" style={{ position: "relative" }}>
-      {isStarted && (
+    // When embedded, remove the fixed height class so that the container sizes naturally.
+    <div className={isEmbedded ? "w-full p-5 bg-white rounded-lg shadow-md" : "w-full h-full p-5 bg-white rounded-lg shadow-md"} style={{ position: "relative" }}>
+      {(!isEmbedded && isStarted) && (
         <div className="absolute top-0 left-0 h-screen w-screen opacity-70 bg-black">
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-10">
             <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -294,11 +242,7 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("state", e.target.value)}
               >
                 {states.map((state) => (
-                  <option
-                    key={state}
-                    value={state}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
-                  >
+                  <option key={state} value={state} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
                     {state}
                   </option>
                 ))}
@@ -315,11 +259,7 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("year", e.target.value)}
               >
                 {years.map((year) => (
-                  <option
-                    key={year}
-                    value={year}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
-                  >
+                  <option key={year} value={year} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
                     {year}
                   </option>
                 ))}
@@ -336,11 +276,7 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("make", e.target.value)}
               >
                 {makes.map((make) => (
-                  <option
-                    key={make}
-                    value={make}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
-                  >
+                  <option key={make} value={make} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
                     {make}
                   </option>
                 ))}
@@ -357,11 +293,7 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("model", e.target.value)}
               >
                 {models.map((model) => (
-                  <option
-                    key={model}
-                    value={model}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
-                  >
+                  <option key={model} value={model} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
                     {model}
                   </option>
                 ))}
@@ -441,7 +373,8 @@ export default function TradeInForm() {
               {isLoading ? "Submitting..." : "Get My Trade-In Value"}
             </button>
             <p className="text-sm text-red-600 mt-2">
-              Warning! Make sure your information is correct because we will text/email you the final report!
+              Warning! Make sure your information is correct because we will
+              text/email you the final report!
             </p>
           </>
         )}
