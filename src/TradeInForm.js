@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-// Keep your existing styles
+// Existing styles for inputs remain unchanged
 const customInputStyle = {
   width: "100%",
   paddingLeft: "0.75rem",
@@ -17,10 +17,10 @@ const customInputStyle = {
   fontSize: "0.875rem",
 };
 
-// Use environment variables as needed:
+// Environment variables and API constants
 const authKey = process.env.REACT_APP_AUTHKEY;
 const webhookUrl = process.env.REACT_APP_WEBHOOK_URL;
-const endUrl = process.env.REACT_APP_END_URL; // Dynamically assigned from .env
+const endUrl = process.env.REACT_APP_END_URL; // End URL dynamically set by environment
 
 const api = axios.create({
   baseURL: "https://api.vehicledatabases.com",
@@ -98,15 +98,13 @@ export default function TradeInForm() {
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
 
-  // Separate states for the main overlay spinner vs. button spinner text
+  // Separate states for overlay spinner and button loading text
   const [isStarted, setIsStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const [error, setError] = useState("");
 
-  // -----------------------------
-  // FETCH FUNCTIONS
-  // -----------------------------
+  // Fetch functions with overlay spinner controls
   const fetchYears = async () => {
     setIsStarted(true);
     try {
@@ -124,12 +122,10 @@ export default function TradeInForm() {
   const fetchMakes = async (year) => {
     setIsStarted(true);
     try {
-      await api
-        .get(`/ymm-specs/options/v2/make/${year}`)
-        .then((response) => {
-          const makeOptions = ["Select Makes", ...response.data.makes];
-          setMakes(makeOptions);
-        });
+      await api.get(`/ymm-specs/options/v2/make/${year}`).then((response) => {
+        const makeOptions = ["Select Makes", ...response.data.makes];
+        setMakes(makeOptions);
+      });
     } catch (error) {
       console.log("Error fetching 'makes' data", error);
     } finally {
@@ -153,11 +149,7 @@ export default function TradeInForm() {
     }
   };
 
-  // -----------------------------
-  // MAIN SUBMISSION (MARKET VALUE)
-  // -----------------------------
   const fetchMarketValues = async () => {
-    // Turn on the overlay spinner
     setIsStarted(true);
     try {
       await api
@@ -167,7 +159,7 @@ export default function TradeInForm() {
         .then(async (res) => {
           const marketValueData = res.data.data.market_value.market_value_data;
 
-          // Convert data for Make.com
+          // Convert data for Make.com webhook
           const objectArray = marketValueData.map((item) => {
             const marketValueObject = item["market value"].reduce(
               (acc, curr) => {
@@ -187,20 +179,20 @@ export default function TradeInForm() {
             return acc;
           }, {});
 
-          // Post to the webhook
+          // Post to webhook
           const payload = { marketValue: jsonObject, form_data: formData };
           const webhookRes = await axios.post(webhookUrl, payload);
 
           if (webhookRes.status === 200) {
-            // Build the final redirect URL from environment variable
-            // Append the #done and add UTMs in the query string
+            // Build the final URL by starting with the environment variable endUrl,
+            // setting the hash to "done", and adding UTM parameters based on the form data.
             const finalUrl = new URL(endUrl);
             finalUrl.hash = "done";
             finalUrl.searchParams.set("utm_name", formData.name);
             finalUrl.searchParams.set("utm_email", formData.email);
             finalUrl.searchParams.set("utm_phone", formData.phone);
 
-            // Force a full window redirect (not in the iframe)
+            // Redirect the full window (not just in an iframe)
             window.top.location.href = finalUrl.toString();
           }
         });
@@ -212,32 +204,26 @@ export default function TradeInForm() {
     }
   };
 
-  // -----------------------------
-  // HOOKS
-  // -----------------------------
+  // Fetch initial data for the form
   useEffect(() => {
     fetchYears();
   }, []);
 
-  // If year changes, fetch makes
+  // When year changes, fetch makes
   useEffect(() => {
     if (formData.year) {
       fetchMakes(formData.year);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.year]);
 
-  // If make changes, fetch models
+  // When make changes, fetch models
   useEffect(() => {
     if (formData.year && formData.make) {
       fetchModels(formData.year, formData.make);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.year, formData.make]);
 
-  // -----------------------------
-  // HANDLERS & VALIDATION
-  // -----------------------------
+  // Handlers and basic validation functions
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({ ...prevData, [name]: value }));
@@ -280,11 +266,11 @@ export default function TradeInForm() {
       return;
     }
 
-    // step === 2
+    // For step 2, check validations and then submit
     if (validateStep2()) {
       try {
         await fetchMarketValues();
-        // Reset the form afterwards
+        // Reset the form
         setFormData({
           year: "",
           make: "",
@@ -304,13 +290,10 @@ export default function TradeInForm() {
     setIsLoading(false);
   };
 
-  // -----------------------------
-  // RENDER
-  // -----------------------------
   return (
-    // Let the container stretch (use w-full). You can also adjust styling as preferred
-    <div className="w-full mt-32 mx-auto p-5 bg-white rounded-lg shadow-md">
-      {/* Over the entire page: overlay spinner */}
+    // Removed the "mt-32" class so that there's no extra top margin above the form fields.
+    <div className="w-full mx-auto p-5 bg-white rounded-lg shadow-md">
+      {/* Overlay spinner */}
       {isStarted && (
         <div className="absolute top-0 left-0 h-screen w-screen opacity-70 bg-black">
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-10">
