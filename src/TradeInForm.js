@@ -230,11 +230,21 @@ export default function TradeInForm() {
   // -----------------------------
   // HANDLERS & VALIDATION
   // -----------------------------
+  /**
+   * For the "miles" field, we switch to `type="text"` so the browser
+   * doesn't reject commas with a "must be a number" error. We then
+   * sanitize the input to remove commas (and any other non-digit chars).
+   */
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // For the "miles" field, remove any commas to preserve proper numeric format
-    const sanitizedValue = name === "miles" ? value.replace(/,/g, "") : value;
-    setFormData((prevData) => ({ ...prevData, [name]: sanitizedValue }));
+
+    // If it's the miles field, remove commas and any non-digit characters
+    if (name === "miles") {
+      const sanitized = value.replace(/[^\d]/g, "");
+      setFormData((prevData) => ({ ...prevData, miles: sanitized }));
+    } else {
+      setFormData((prevData) => ({ ...prevData, [name]: value }));
+    }
   };
 
   const handleSelectChange = (name, value) => {
@@ -423,8 +433,15 @@ export default function TradeInForm() {
               >
                 Miles
               </label>
+              {/*
+                Use type="text" with inputMode="numeric" to bring up
+                a numeric keyboard on mobile, but not trigger
+                the native "Enter a number" HTML error.
+              */}
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 id="miles"
                 className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 name="miles"
