@@ -98,11 +98,37 @@ export default function TradeInForm() {
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
 
+  // State to capture UTM parameters from the URL
+  const [utmData, setUtmData] = useState({
+    utm_source: "",
+    utm_medium: "",
+    utm_campaign: "",
+    utm_content: "",
+    utm_id: "",
+    utm_term: "",
+    fbclid: "",
+  });
+
   // Separate states for overlay spinner and button loading text
   const [isStarted, setIsStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
   const [error, setError] = useState("");
+
+  // -----------------------------
+  // UTMs EXTRACTION (ON PAGE LOAD)
+  // -----------------------------
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    setUtmData({
+      utm_source: urlParams.get("utm_source") || "",
+      utm_medium: urlParams.get("utm_medium") || "",
+      utm_campaign: urlParams.get("utm_campaign") || "",
+      utm_content: urlParams.get("utm_content") || "",
+      utm_id: urlParams.get("utm_id") || "",
+      utm_term: urlParams.get("utm_term") || "",
+      fbclid: urlParams.get("fbclid") || "",
+    });
+  }, []);
 
   // -----------------------------
   // FETCH FUNCTIONS
@@ -164,7 +190,7 @@ export default function TradeInForm() {
         .then(async (res) => {
           const marketValueData = res.data.data.market_value.market_value_data;
 
-          // Convert data for Make.com webhook
+          // Convert data for the webhook
           const objectArray = marketValueData.map((item) => {
             const marketValueObject = item["market value"].reduce(
               (acc, curr) => {
@@ -184,17 +210,29 @@ export default function TradeInForm() {
             return acc;
           }, {});
 
-          // Post to webhook
-          const payload = { marketValue: jsonObject, form_data: formData };
+          // Build the payload and include UTM parameters as individual variables
+          const payload = {
+            marketValue: jsonObject,
+            form_data: formData,
+            utm_source: utmData.utm_source,
+            utm_medium: utmData.utm_medium,
+            utm_campaign: utmData.utm_campaign,
+            utm_content: utmData.utm_content,
+            utm_id: utmData.utm_id,
+            utm_term: utmData.utm_term,
+            fbclid: utmData.fbclid,
+          };
+
           const webhookRes = await axios.post(webhookUrl, payload);
 
           if (webhookRes.status === 200) {
-            // Build the final URL using the environment variable endUrl
+            // Build the final URL for redirection from the environment variable
             const finalUrl = new URL(endUrl);
             finalUrl.hash = "done";
             finalUrl.searchParams.set("utm_name", formData.name);
             finalUrl.searchParams.set("utm_email", formData.email);
             finalUrl.searchParams.set("utm_phone", formData.phone);
+            // Optionally, you could add the UTMs to the final URL as well if needed
 
             // Redirect the full window (not just in an iframe)
             window.top.location.href = finalUrl.toString();
@@ -209,7 +247,7 @@ export default function TradeInForm() {
   };
 
   // -----------------------------
-  // HOOKS
+  // HOOKS FOR INITIAL DATA FETCH
   // -----------------------------
   useEffect(() => {
     fetchYears();
@@ -231,14 +269,12 @@ export default function TradeInForm() {
   // HANDLERS & VALIDATION
   // -----------------------------
   /**
-   * For the "miles" field, we switch to `type="text"` so the browser
-   * doesn't reject commas with a "must be a number" error. We then
-   * sanitize the input to remove commas (and any other non-digit chars).
+   * For the "miles" field, we use inputMode="numeric" with type="text" so the browser
+   * doesn't trigger native numeric validation errors (allowing commas to be typed),
+   * and then sanitize by stripping commas and non-digit characters.
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    // If it's the miles field, remove commas and any non-digit characters
     if (name === "miles") {
       const sanitized = value.replace(/[^\d]/g, "");
       setFormData((prevData) => ({ ...prevData, miles: sanitized }));
@@ -311,7 +347,7 @@ export default function TradeInForm() {
   // RENDER
   // -----------------------------
   return (
-    // The container now has no extra top margin
+    // Container with no extra top margin
     <div className="w-full mx-auto p-5 bg-white rounded-lg shadow-md">
       {isStarted && (
         <div className="absolute top-0 left-0 h-screen w-screen opacity-70 bg-black">
@@ -320,17 +356,13 @@ export default function TradeInForm() {
           </div>
         </div>
       )}
-
       {error && <div className="text-red-600 mb-4">{error}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {step === 1 ? (
           <>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="state"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="state">
                 State
               </label>
               <select
@@ -340,11 +372,7 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("state", e.target.value)}
               >
                 {states.map((state) => (
-                  <option
-                    key={state}
-                    value={state}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
-                  >
+                  <option key={state} value={state} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
                     {state}
                   </option>
                 ))}
@@ -352,10 +380,7 @@ export default function TradeInForm() {
             </div>
 
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="year"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="year">
                 Year
               </label>
               <select
@@ -365,11 +390,7 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("year", e.target.value)}
               >
                 {years.map((yearOption) => (
-                  <option
-                    key={yearOption}
-                    value={yearOption}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
-                  >
+                  <option key={yearOption} value={yearOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
                     {yearOption}
                   </option>
                 ))}
@@ -377,10 +398,7 @@ export default function TradeInForm() {
             </div>
 
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="make"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="make">
                 Make
               </label>
               <select
@@ -390,11 +408,7 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("make", e.target.value)}
               >
                 {makes.map((makeOption) => (
-                  <option
-                    key={makeOption}
-                    value={makeOption}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
-                  >
+                  <option key={makeOption} value={makeOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
                     {makeOption}
                   </option>
                 ))}
@@ -402,10 +416,7 @@ export default function TradeInForm() {
             </div>
 
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="model"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="model">
                 Model
               </label>
               <select
@@ -415,11 +426,7 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("model", e.target.value)}
               >
                 {models.map((modelOption) => (
-                  <option
-                    key={modelOption}
-                    value={modelOption}
-                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
-                  >
+                  <option key={modelOption} value={modelOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
                     {modelOption}
                   </option>
                 ))}
@@ -427,16 +434,12 @@ export default function TradeInForm() {
             </div>
 
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="miles"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="miles">
                 Miles
               </label>
               {/*
-                Use type="text" with inputMode="numeric" to bring up
-                a numeric keyboard on mobile, but not trigger
-                the native "Enter a number" HTML error.
+                Use type="text" with inputMode="numeric" so mobile keyboards prompt numbers
+                and avoid native "must be a number" validation.
               */}
               <input
                 type="text"
@@ -462,10 +465,7 @@ export default function TradeInForm() {
         ) : (
           <>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="name"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="name">
                 Name
               </label>
               <input
@@ -480,10 +480,7 @@ export default function TradeInForm() {
             </div>
 
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="email"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="email">
                 Email
               </label>
               <input
@@ -498,10 +495,7 @@ export default function TradeInForm() {
             </div>
 
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="phone"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="phone">
                 Phone
               </label>
               <input
@@ -524,8 +518,7 @@ export default function TradeInForm() {
             </button>
 
             <p className="text-sm text-red-600 mt-2">
-              Warning! Make sure your information is correct because we will
-              text/email you the final report!
+              Warning! Make sure your information is correct because we will text/email you the final report!
             </p>
           </>
         )}
