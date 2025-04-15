@@ -54,7 +54,7 @@ export default function TradeInForm() {
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
 
-  // State to capture UTM parameters from the parent URL
+  // State to capture UTM parameters from the parent URL (with fallback)
   const [utmData, setUtmData] = useState({
     utm_source: "",
     utm_medium: "",
@@ -71,12 +71,30 @@ export default function TradeInForm() {
   const [error, setError] = useState("");
 
   // -----------------------------
-  // UTMs EXTRACTION (FROM THE PARENT URL)
+  // UTMs EXTRACTION FROM PARENT URL (WITH FALLBACK)
   // -----------------------------
   useEffect(() => {
+    let searchString = "";
+    // Try to get parameters from the top window if possible.
     try {
-      // Use window.top.location.search to grab URL parameters from the parent window.
-      const urlParams = new URLSearchParams(window.top.location.search);
+      if (window.top && window.top.location && window.top.location.search) {
+        searchString = window.top.location.search;
+      }
+    } catch (err) {
+      console.error("Accessing window.top.location.search failed", err);
+    }
+    // If searchString is still empty, try using document.referrer.
+    if (!searchString && document.referrer) {
+      try {
+        const refUrl = new URL(document.referrer);
+        searchString = refUrl.search;
+      } catch (error) {
+        console.error("Error parsing document.referrer", error);
+      }
+    }
+    // If we have a query string, parse UTM parameters
+    if (searchString) {
+      const urlParams = new URLSearchParams(searchString);
       setUtmData({
         utm_source: urlParams.get("utm_source") || "",
         utm_medium: urlParams.get("utm_medium") || "",
@@ -86,8 +104,6 @@ export default function TradeInForm() {
         utm_term: urlParams.get("utm_term") || "",
         fbclid: urlParams.get("fbclid") || "",
       });
-    } catch (err) {
-      console.error("Error extracting UTM data from parent URL", err);
     }
   }, []);
 
@@ -193,7 +209,7 @@ export default function TradeInForm() {
             finalUrl.searchParams.set("utm_name", formData.name);
             finalUrl.searchParams.set("utm_email", formData.email);
             finalUrl.searchParams.set("utm_phone", formData.phone);
-            // Optionally, you could add the UTM parameters here as well if needed
+            // Optionally add UTM info here, if needed
 
             // Redirect the full window (not just in an iframe)
             window.top.location.href = finalUrl.toString();
@@ -230,8 +246,8 @@ export default function TradeInForm() {
   // HANDLERS & VALIDATION
   // -----------------------------
   /**
-   * For the "miles" field, we use inputMode="numeric" with type="text" so that we don't trigger native numeric validation errors.
-   * Then we sanitize by stripping out any non-digit characters.
+   * For the "miles" field, we use inputMode="numeric" with type="text" to avoid native numeric validations,
+   * and then sanitize by stripping out any non-digit characters.
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -317,15 +333,11 @@ export default function TradeInForm() {
         </div>
       )}
       {error && <div className="text-red-600 mb-4">{error}</div>}
-
       <form onSubmit={handleSubmit} className="space-y-4">
         {step === 1 ? (
           <>
             <div className="space-y-2">
-              <label
-                className="block text-left pl-3 text-sm font-medium text-gray-700"
-                htmlFor="state"
-              >
+              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="state">
                 State
               </label>
               <select
@@ -341,7 +353,6 @@ export default function TradeInForm() {
                 ))}
               </select>
             </div>
-
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="year">
                 Year
@@ -359,7 +370,6 @@ export default function TradeInForm() {
                 ))}
               </select>
             </div>
-
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="make">
                 Make
@@ -377,7 +387,6 @@ export default function TradeInForm() {
                 ))}
               </select>
             </div>
-
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="model">
                 Model
@@ -395,14 +404,10 @@ export default function TradeInForm() {
                 ))}
               </select>
             </div>
-
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="miles">
                 Miles
               </label>
-              {/*
-                Use type="text" with inputMode="numeric" so mobile keyboards prompt numbers without triggering native validation.
-              */}
               <input
                 type="text"
                 inputMode="numeric"
@@ -415,7 +420,6 @@ export default function TradeInForm() {
                 placeholder="Enter miles"
               />
             </div>
-
             <button
               type="submit"
               className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
@@ -440,7 +444,6 @@ export default function TradeInForm() {
                 placeholder="Enter your name"
               />
             </div>
-
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="email">
                 Email
@@ -455,7 +458,6 @@ export default function TradeInForm() {
                 placeholder="Enter your email"
               />
             </div>
-
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="phone">
                 Phone
@@ -470,7 +472,6 @@ export default function TradeInForm() {
                 placeholder="Enter your phone number"
               />
             </div>
-
             <button
               type="submit"
               className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
@@ -478,7 +479,6 @@ export default function TradeInForm() {
             >
               {isLoading ? "Submitting..." : "Get My Trade-In Value"}
             </button>
-
             <p className="text-sm text-red-600 mt-2">
               Warning! Make sure your information is correct because we will text/email you the final report!
             </p>
