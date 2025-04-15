@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-// Input styles remain unchanged
+// Input style remains unchanged
 const customInputStyle = {
   width: "100%",
   paddingLeft: "0.75rem",
@@ -20,7 +20,7 @@ const customInputStyle = {
 // Environment variables and API constants
 const authKey = process.env.REACT_APP_AUTHKEY;
 const webhookUrl = process.env.REACT_APP_WEBHOOK_URL;
-const endUrl = process.env.REACT_APP_END_URL; // Dynamically set via env
+const endUrl = process.env.REACT_APP_END_URL; // End URL from env variables
 
 const api = axios.create({
   baseURL: "https://api.vehicledatabases.com",
@@ -52,7 +52,7 @@ export default function TradeInForm() {
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
   
-  // State to store UTM parameters received from the parent page
+  // State to store UTM parameters received from the parent
   const [utmData, setUtmData] = useState({
     utm_source: "",
     utm_medium: "",
@@ -63,19 +63,19 @@ export default function TradeInForm() {
     fbclid: ""
   });
   
-  // Spinner and error states
+  // States for overlay spinner, button loading text, and error message
   const [isStarted, setIsStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   // -----------------------------
-  // MESSAGE LISTENER FOR UTM DATA
+  // MESSAGE LISTENER FOR UTMs FROM PARENT
   // -----------------------------
   useEffect(() => {
     function receiveMessage(event) {
-      // Optionally, verify event.origin for security.
+      // Optionally, add a check for event.origin here
       if (event.data && event.data.utmData) {
-        console.log("Received UTM data from parent:", event.data.utmData);
+        console.log("Received UTM data via postMessage:", event.data.utmData);
         setUtmData(event.data.utmData);
       }
     }
@@ -89,12 +89,12 @@ export default function TradeInForm() {
   const fetchYears = async () => {
     setIsStarted(true);
     try {
-      await api.get("/ymm-specs/options/v2/year").then((response) => {
+      await api.get("/ymm-specs/options/v2/year").then(response => {
         const yearOptions = ["Select Years", ...response.data.years];
         setYears(yearOptions);
       });
-    } catch (error) {
-      console.log("Error fetching years:", error);
+    } catch (err) {
+      console.error("Error fetching years:", err);
     } finally {
       setIsStarted(false);
     }
@@ -103,12 +103,12 @@ export default function TradeInForm() {
   const fetchMakes = async (year) => {
     setIsStarted(true);
     try {
-      await api.get(`/ymm-specs/options/v2/make/${year}`).then((response) => {
+      await api.get(`/ymm-specs/options/v2/make/${year}`).then(response => {
         const makeOptions = ["Select Makes", ...response.data.makes];
         setMakes(makeOptions);
       });
-    } catch (error) {
-      console.log("Error fetching makes:", error);
+    } catch (err) {
+      console.error("Error fetching makes:", err);
     } finally {
       setIsStarted(false);
     }
@@ -118,12 +118,12 @@ export default function TradeInForm() {
     setIsStarted(true);
     try {
       await api.get(`/ymm-specs/options/v2/model/${year}/${make}`)
-        .then((response) => {
+        .then(response => {
           const modelOptions = ["Select Models", ...response.data.models];
           setModels(modelOptions);
         });
-    } catch (error) {
-      console.log("Error fetching models:", error);
+    } catch (err) {
+      console.error("Error fetching models:", err);
     } finally {
       setIsStarted(false);
     }
@@ -135,56 +135,51 @@ export default function TradeInForm() {
   const fetchMarketValues = async () => {
     setIsStarted(true);
     try {
-      await api
-        .get(
-          `/market-value/v2/ymm/${formData.year}/${formData.make}/${formData.model}?state=${formData.state}&mileage=${formData.miles}`
-        )
-        .then(async (res) => {
-          const marketValueData = res.data.data.market_value.market_value_data;
-          const objectArray = marketValueData.map((item) => {
-            const marketValueObject = item["market value"].reduce(
-              (acc, curr) => {
-                acc[curr.Condition] = {
-                  Trade_In: curr["Trade-In"],
-                  Private_Party: curr["Private Party"],
-                  Dealer_Retail: curr["Dealer Retail"],
-                };
-                return acc;
-              },
-              {}
-            );
-            return { trim: item.trim, market_value: marketValueObject };
-          });
-          const jsonObject = objectArray.reduce((acc, item, index) => {
-            acc[`item${index}`] = item;
+      await api.get(
+        `/market-value/v2/ymm/${formData.year}/${formData.make}/${formData.model}?state=${formData.state}&mileage=${formData.miles}`
+      ).then(async res => {
+        const marketValueData = res.data.data.market_value.market_value_data;
+        const objectArray = marketValueData.map(item => {
+          const marketValueObject = item["market value"].reduce((acc, curr) => {
+            acc[curr.Condition] = {
+              Trade_In: curr["Trade-In"],
+              Private_Party: curr["Private Party"],
+              Dealer_Retail: curr["Dealer Retail"],
+            };
             return acc;
           }, {});
-          
-          // Build payload including UTMs
-          const payload = {
-            marketValue: jsonObject,
-            form_data: formData,
-            utm_source: utmData.utm_source,
-            utm_medium: utmData.utm_medium,
-            utm_campaign: utmData.utm_campaign,
-            utm_content: utmData.utm_content,
-            utm_id: utmData.utm_id,
-            utm_term: utmData.utm_term,
-            fbclid: utmData.fbclid,
-          };
-
-          const webhookRes = await axios.post(webhookUrl, payload);
-          if (webhookRes.status === 200) {
-            const finalUrl = new URL(endUrl);
-            finalUrl.hash = "done";
-            finalUrl.searchParams.set("utm_name", formData.name);
-            finalUrl.searchParams.set("utm_email", formData.email);
-            finalUrl.searchParams.set("utm_phone", formData.phone);
-            window.top.location.href = finalUrl.toString();
-          }
+          return { trim: item.trim, market_value: marketValueObject };
         });
-    } catch (error) {
-      console.log("Error fetching market value data:", error);
+        const jsonObject = objectArray.reduce((acc, item, index) => {
+          acc[`item${index}`] = item;
+          return acc;
+        }, {});
+        
+        // Build the webhook payload including UTM data
+        const payload = {
+          marketValue: jsonObject,
+          form_data: formData,
+          utm_source: utmData.utm_source,
+          utm_medium: utmData.utm_medium,
+          utm_campaign: utmData.utm_campaign,
+          utm_content: utmData.utm_content,
+          utm_id: utmData.utm_id,
+          utm_term: utmData.utm_term,
+          fbclid: utmData.fbclid,
+        };
+        console.log("Webhook payload:", payload);
+        const webhookRes = await axios.post(webhookUrl, payload);
+        if (webhookRes.status === 200) {
+          const finalUrl = new URL(endUrl);
+          finalUrl.hash = "done";
+          finalUrl.searchParams.set("utm_name", formData.name);
+          finalUrl.searchParams.set("utm_email", formData.email);
+          finalUrl.searchParams.set("utm_phone", formData.phone);
+          window.top.location.href = finalUrl.toString();
+        }
+      });
+    } catch (err) {
+      console.error("Error fetching market value:", err);
       setError("There was an error submitting your request. Please try again.");
     } finally {
       setIsStarted(false);
@@ -205,31 +200,31 @@ export default function TradeInForm() {
     const { name, value } = e.target;
     if (name === "miles") {
       const sanitized = value.replace(/[^\d]/g, "");
-      setFormData((prevData) => ({ ...prevData, miles: sanitized }));
+      setFormData(prev => ({ ...prev, miles: sanitized }));
     } else {
-      setFormData((prevData) => ({ ...prevData, [name]: value }));
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
   const handleSelectChange = (name, value) => {
-    setFormData((prevData) => ({ ...prevData, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const validateStep1 = () => {
-    const requiredFields = ["year", "make", "model", "state", "miles"];
-    const emptyFields = requiredFields.filter((field) => !formData[field]);
-    if (emptyFields.length > 0) {
-      setError(`Please fill in all required fields: ${emptyFields.join(", ")}`);
+    const required = ["year", "make", "model", "state", "miles"];
+    const missing = required.filter(field => !formData[field]);
+    if (missing.length > 0) {
+      setError(`Please fill in all required fields: ${missing.join(", ")}`);
       return false;
     }
     return true;
   };
 
   const validateStep2 = () => {
-    const requiredFields = ["name", "email", "phone"];
-    const emptyFields = requiredFields.filter((field) => !formData[field]);
-    if (emptyFields.length > 0) {
-      setError(`Please fill in all required fields: ${emptyFields.join(", ")}`);
+    const required = ["name", "email", "phone"];
+    const missing = required.filter(field => !formData[field]);
+    if (missing.length > 0) {
+      setError(`Please fill in all required fields: ${missing.join(", ")}`);
       return false;
     }
     return true;
@@ -240,7 +235,7 @@ export default function TradeInForm() {
     setError("");
     setIsLoading(true);
     if (step === 1) {
-      if (validateStep1()) { setStep(2); }
+      if (validateStep1()) setStep(2);
       setIsLoading(false);
       return;
     }
@@ -259,7 +254,7 @@ export default function TradeInForm() {
         });
         setStep(1);
       } catch (err) {
-        console.error("Error:", err);
+        console.error("Submission error:", err);
         setError("There was an error submitting your request. Please try again.");
       }
     }
@@ -284,32 +279,32 @@ export default function TradeInForm() {
           <>
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="state">State</label>
-              <select name="state" style={customInputStyle} value={formData.state} onChange={(e) => handleSelectChange("state", e.target.value)}>
-                {states.map((state) => (
+              <select name="state" style={customInputStyle} value={formData.state} onChange={e => handleSelectChange("state", e.target.value)}>
+                {states.map(state => (
                   <option key={state} value={state} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">{state}</option>
                 ))}
               </select>
             </div>
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="year">Year</label>
-              <select name="year" style={customInputStyle} value={formData.year} onChange={(e) => handleSelectChange("year", e.target.value)}>
-                {years.map((yearOption) => (
+              <select name="year" style={customInputStyle} value={formData.year} onChange={e => handleSelectChange("year", e.target.value)}>
+                {years.map(yearOption => (
                   <option key={yearOption} value={yearOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">{yearOption}</option>
                 ))}
               </select>
             </div>
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="make">Make</label>
-              <select name="make" style={customInputStyle} value={formData.make} onChange={(e) => handleSelectChange("make", e.target.value)}>
-                {makes.map((makeOption) => (
+              <select name="make" style={customInputStyle} value={formData.make} onChange={e => handleSelectChange("make", e.target.value)}>
+                {makes.map(makeOption => (
                   <option key={makeOption} value={makeOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">{makeOption}</option>
                 ))}
               </select>
             </div>
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="model">Model</label>
-              <select name="model" style={customInputStyle} value={formData.model} onChange={(e) => handleSelectChange("model", e.target.value)}>
-                {models.map((modelOption) => (
+              <select name="model" style={customInputStyle} value={formData.model} onChange={e => handleSelectChange("model", e.target.value)}>
+                {models.map(modelOption => (
                   <option key={modelOption} value={modelOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">{modelOption}</option>
                 ))}
               </select>
