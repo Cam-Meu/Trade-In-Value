@@ -30,56 +30,12 @@ const api = axios.create({
 });
 
 const states = [
-  "AL",
-  "AK",
-  "AZ",
-  "AR",
-  "CA",
-  "CO",
-  "CT",
-  "DE",
-  "FL",
-  "GA",
-  "HI",
-  "ID",
-  "IL",
-  "IN",
-  "IA",
-  "KS",
-  "KY",
-  "LA",
-  "ME",
-  "MD",
-  "MA",
-  "MI",
-  "MN",
-  "MS",
-  "MO",
-  "MT",
-  "NE",
-  "NV",
-  "NH",
-  "NJ",
-  "NM",
-  "NY",
-  "NC",
-  "ND",
-  "OH",
-  "OK",
-  "OR",
-  "PA",
-  "RI",
-  "SC",
-  "SD",
-  "TN",
-  "TX",
-  "UT",
-  "VT",
-  "VA",
-  "WA",
-  "WV",
-  "WI",
-  "WY",
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL",
+  "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA",
+  "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE",
+  "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK",
+  "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT",
+  "VA", "WA", "WV", "WI", "WY",
 ];
 
 export default function TradeInForm() {
@@ -98,7 +54,7 @@ export default function TradeInForm() {
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
 
-  // State to capture UTM parameters from the URL
+  // State to capture UTM parameters from the parent URL
   const [utmData, setUtmData] = useState({
     utm_source: "",
     utm_medium: "",
@@ -115,19 +71,24 @@ export default function TradeInForm() {
   const [error, setError] = useState("");
 
   // -----------------------------
-  // UTMs EXTRACTION (ON PAGE LOAD)
+  // UTMs EXTRACTION (FROM THE PARENT URL)
   // -----------------------------
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    setUtmData({
-      utm_source: urlParams.get("utm_source") || "",
-      utm_medium: urlParams.get("utm_medium") || "",
-      utm_campaign: urlParams.get("utm_campaign") || "",
-      utm_content: urlParams.get("utm_content") || "",
-      utm_id: urlParams.get("utm_id") || "",
-      utm_term: urlParams.get("utm_term") || "",
-      fbclid: urlParams.get("fbclid") || "",
-    });
+    try {
+      // Use window.top.location.search to grab URL parameters from the parent window.
+      const urlParams = new URLSearchParams(window.top.location.search);
+      setUtmData({
+        utm_source: urlParams.get("utm_source") || "",
+        utm_medium: urlParams.get("utm_medium") || "",
+        utm_campaign: urlParams.get("utm_campaign") || "",
+        utm_content: urlParams.get("utm_content") || "",
+        utm_id: urlParams.get("utm_id") || "",
+        utm_term: urlParams.get("utm_term") || "",
+        fbclid: urlParams.get("fbclid") || "",
+      });
+    } catch (err) {
+      console.error("Error extracting UTM data from parent URL", err);
+    }
   }, []);
 
   // -----------------------------
@@ -226,13 +187,13 @@ export default function TradeInForm() {
           const webhookRes = await axios.post(webhookUrl, payload);
 
           if (webhookRes.status === 200) {
-            // Build the final URL for redirection from the environment variable
+            // Build the final URL for redirection using the environment variable endUrl
             const finalUrl = new URL(endUrl);
             finalUrl.hash = "done";
             finalUrl.searchParams.set("utm_name", formData.name);
             finalUrl.searchParams.set("utm_email", formData.email);
             finalUrl.searchParams.set("utm_phone", formData.phone);
-            // Optionally, you could add the UTMs to the final URL as well if needed
+            // Optionally, you could add the UTM parameters here as well if needed
 
             // Redirect the full window (not just in an iframe)
             window.top.location.href = finalUrl.toString();
@@ -269,9 +230,8 @@ export default function TradeInForm() {
   // HANDLERS & VALIDATION
   // -----------------------------
   /**
-   * For the "miles" field, we use inputMode="numeric" with type="text" so the browser
-   * doesn't trigger native numeric validation errors (allowing commas to be typed),
-   * and then sanitize by stripping commas and non-digit characters.
+   * For the "miles" field, we use inputMode="numeric" with type="text" so that we don't trigger native numeric validation errors.
+   * Then we sanitize by stripping out any non-digit characters.
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -362,7 +322,10 @@ export default function TradeInForm() {
         {step === 1 ? (
           <>
             <div className="space-y-2">
-              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="state">
+              <label
+                className="block text-left pl-3 text-sm font-medium text-gray-700"
+                htmlFor="state"
+              >
                 State
               </label>
               <select
@@ -438,8 +401,7 @@ export default function TradeInForm() {
                 Miles
               </label>
               {/*
-                Use type="text" with inputMode="numeric" so mobile keyboards prompt numbers
-                and avoid native "must be a number" validation.
+                Use type="text" with inputMode="numeric" so mobile keyboards prompt numbers without triggering native validation.
               */}
               <input
                 type="text"
