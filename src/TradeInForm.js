@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-// Existing styles for inputs remain unchanged
+// Input styles remain unchanged
 const customInputStyle = {
   width: "100%",
   paddingLeft: "0.75rem",
@@ -20,13 +20,11 @@ const customInputStyle = {
 // Environment variables and API constants
 const authKey = process.env.REACT_APP_AUTHKEY;
 const webhookUrl = process.env.REACT_APP_WEBHOOK_URL;
-const endUrl = process.env.REACT_APP_END_URL; // End URL dynamically set by environment
+const endUrl = process.env.REACT_APP_END_URL; // Dynamically set via env
 
 const api = axios.create({
   baseURL: "https://api.vehicledatabases.com",
-  headers: {
-    "x-AuthKey": authKey,
-  },
+  headers: { "x-AuthKey": authKey },
 });
 
 const states = [
@@ -54,7 +52,7 @@ export default function TradeInForm() {
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
   
-  // State to hold UTM parameters received from the parent
+  // State to store UTM parameters received from the parent page
   const [utmData, setUtmData] = useState({
     utm_source: "",
     utm_medium: "",
@@ -62,21 +60,22 @@ export default function TradeInForm() {
     utm_content: "",
     utm_id: "",
     utm_term: "",
-    fbclid: "",
+    fbclid: ""
   });
   
-  // States for overlay spinner and button loading text
+  // Spinner and error states
   const [isStarted, setIsStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   // -----------------------------
-  // MESSAGE LISTENER FOR UTMs FROM PARENT
+  // MESSAGE LISTENER FOR UTM DATA
   // -----------------------------
   useEffect(() => {
     function receiveMessage(event) {
-      // Optionally, check event.origin for security purposes
+      // Optionally, verify event.origin for security.
       if (event.data && event.data.utmData) {
+        console.log("Received UTM data from parent:", event.data.utmData);
         setUtmData(event.data.utmData);
       }
     }
@@ -95,12 +94,12 @@ export default function TradeInForm() {
         setYears(yearOptions);
       });
     } catch (error) {
-      console.log("Error fetching 'years' data", error);
+      console.log("Error fetching years:", error);
     } finally {
       setIsStarted(false);
     }
   };
-
+  
   const fetchMakes = async (year) => {
     setIsStarted(true);
     try {
@@ -109,12 +108,12 @@ export default function TradeInForm() {
         setMakes(makeOptions);
       });
     } catch (error) {
-      console.log("Error fetching 'makes' data", error);
+      console.log("Error fetching makes:", error);
     } finally {
       setIsStarted(false);
     }
   };
-
+  
   const fetchModels = async (year, make) => {
     setIsStarted(true);
     try {
@@ -124,7 +123,7 @@ export default function TradeInForm() {
           setModels(modelOptions);
         });
     } catch (error) {
-      console.log("Error fetching 'models' data", error);
+      console.log("Error fetching models:", error);
     } finally {
       setIsStarted(false);
     }
@@ -136,84 +135,72 @@ export default function TradeInForm() {
   const fetchMarketValues = async () => {
     setIsStarted(true);
     try {
-      await api.get(
-        `/market-value/v2/ymm/${formData.year}/${formData.make}/${formData.model}?state=${formData.state}&mileage=${formData.miles}`
-      ).then(async (res) => {
-        const marketValueData = res.data.data.market_value.market_value_data;
-        // Convert data for the webhook
-        const objectArray = marketValueData.map((item) => {
-          const marketValueObject = item["market value"].reduce(
-            (acc, curr) => {
-              acc[curr.Condition] = {
-                Trade_In: curr["Trade-In"],
-                Private_Party: curr["Private Party"],
-                Dealer_Retail: curr["Dealer Retail"],
-              };
-              return acc;
-            },
-            {}
-          );
-          return { trim: item.trim, market_value: marketValueObject };
+      await api
+        .get(
+          `/market-value/v2/ymm/${formData.year}/${formData.make}/${formData.model}?state=${formData.state}&mileage=${formData.miles}`
+        )
+        .then(async (res) => {
+          const marketValueData = res.data.data.market_value.market_value_data;
+          const objectArray = marketValueData.map((item) => {
+            const marketValueObject = item["market value"].reduce(
+              (acc, curr) => {
+                acc[curr.Condition] = {
+                  Trade_In: curr["Trade-In"],
+                  Private_Party: curr["Private Party"],
+                  Dealer_Retail: curr["Dealer Retail"],
+                };
+                return acc;
+              },
+              {}
+            );
+            return { trim: item.trim, market_value: marketValueObject };
+          });
+          const jsonObject = objectArray.reduce((acc, item, index) => {
+            acc[`item${index}`] = item;
+            return acc;
+          }, {});
+          
+          // Build payload including UTMs
+          const payload = {
+            marketValue: jsonObject,
+            form_data: formData,
+            utm_source: utmData.utm_source,
+            utm_medium: utmData.utm_medium,
+            utm_campaign: utmData.utm_campaign,
+            utm_content: utmData.utm_content,
+            utm_id: utmData.utm_id,
+            utm_term: utmData.utm_term,
+            fbclid: utmData.fbclid,
+          };
+
+          const webhookRes = await axios.post(webhookUrl, payload);
+          if (webhookRes.status === 200) {
+            const finalUrl = new URL(endUrl);
+            finalUrl.hash = "done";
+            finalUrl.searchParams.set("utm_name", formData.name);
+            finalUrl.searchParams.set("utm_email", formData.email);
+            finalUrl.searchParams.set("utm_phone", formData.phone);
+            window.top.location.href = finalUrl.toString();
+          }
         });
-        const jsonObject = objectArray.reduce((acc, item, index) => {
-          acc[`item${index}`] = item;
-          return acc;
-        }, {});
-        
-        // Build the payload and include UTMs from the parent
-        const payload = {
-          marketValue: jsonObject,
-          form_data: formData,
-          utm_source: utmData.utm_source,
-          utm_medium: utmData.utm_medium,
-          utm_campaign: utmData.utm_campaign,
-          utm_content: utmData.utm_content,
-          utm_id: utmData.utm_id,
-          utm_term: utmData.utm_term,
-          fbclid: utmData.fbclid,
-        };
-
-        const webhookRes = await axios.post(webhookUrl, payload);
-
-        if (webhookRes.status === 200) {
-          // Build the final URL for redirection using the environment variable endUrl
-          const finalUrl = new URL(endUrl);
-          finalUrl.hash = "done";
-          finalUrl.searchParams.set("utm_name", formData.name);
-          finalUrl.searchParams.set("utm_email", formData.email);
-          finalUrl.searchParams.set("utm_phone", formData.phone);
-          // Redirect the full window (not just in the iframe)
-          window.top.location.href = finalUrl.toString();
-        }
-      });
     } catch (error) {
-      console.log("Error fetching 'market value' data", error);
+      console.log("Error fetching market value data:", error);
       setError("There was an error submitting your request. Please try again.");
     } finally {
       setIsStarted(false);
     }
   };
-  
+
   // -----------------------------
-  // HOOKS FOR INITIAL DATA FETCH
+  // INITIAL DATA FETCH HOOKS
   // -----------------------------
   useEffect(() => { fetchYears(); }, []);
-  
-  useEffect(() => {
-    if (formData.year) { fetchMakes(formData.year); }
-  }, [formData.year]);
-  
-  useEffect(() => {
-    if (formData.year && formData.make) { fetchModels(formData.year, formData.make); }
-  }, [formData.year, formData.make]);
+  useEffect(() => { if (formData.year) fetchMakes(formData.year); }, [formData.year]);
+  useEffect(() => { if (formData.year && formData.make) fetchModels(formData.year, formData.make); }, [formData.year, formData.make]);
 
   // -----------------------------
   // HANDLERS & VALIDATION
   // -----------------------------
-  /**
-   * We use type="text" for the miles field so that native browser numeric validation isn’t triggered.
-   * The input is sanitized by stripping out any non-digit characters.
-   */
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "miles") {
@@ -252,17 +239,14 @@ export default function TradeInForm() {
     e.preventDefault();
     setError("");
     setIsLoading(true);
-  
     if (step === 1) {
       if (validateStep1()) { setStep(2); }
       setIsLoading(false);
       return;
     }
-  
     if (validateStep2()) {
       try {
         await fetchMarketValues();
-        // Reset the form
         setFormData({
           year: "",
           make: "",
@@ -281,7 +265,7 @@ export default function TradeInForm() {
     }
     setIsLoading(false);
   };
-  
+
   // -----------------------------
   // RENDER
   // -----------------------------
@@ -295,86 +279,46 @@ export default function TradeInForm() {
         </div>
       )}
       {error && <div className="text-red-600 mb-4">{error}</div>}
-  
       <form onSubmit={handleSubmit} className="space-y-4">
         {step === 1 ? (
           <>
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="state">State</label>
-              <select
-                name="state"
-                style={customInputStyle}
-                value={formData.state}
-                onChange={(e) => handleSelectChange("state", e.target.value)}
-              >
+              <select name="state" style={customInputStyle} value={formData.state} onChange={(e) => handleSelectChange("state", e.target.value)}>
                 {states.map((state) => (
                   <option key={state} value={state} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">{state}</option>
                 ))}
               </select>
             </div>
-  
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="year">Year</label>
-              <select
-                name="year"
-                style={customInputStyle}
-                value={formData.year}
-                onChange={(e) => handleSelectChange("year", e.target.value)}
-              >
+              <select name="year" style={customInputStyle} value={formData.year} onChange={(e) => handleSelectChange("year", e.target.value)}>
                 {years.map((yearOption) => (
                   <option key={yearOption} value={yearOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">{yearOption}</option>
                 ))}
               </select>
             </div>
-  
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="make">Make</label>
-              <select
-                name="make"
-                style={customInputStyle}
-                value={formData.make}
-                onChange={(e) => handleSelectChange("make", e.target.value)}
-              >
+              <select name="make" style={customInputStyle} value={formData.make} onChange={(e) => handleSelectChange("make", e.target.value)}>
                 {makes.map((makeOption) => (
                   <option key={makeOption} value={makeOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">{makeOption}</option>
                 ))}
               </select>
             </div>
-  
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="model">Model</label>
-              <select
-                name="model"
-                style={customInputStyle}
-                value={formData.model}
-                onChange={(e) => handleSelectChange("model", e.target.value)}
-              >
+              <select name="model" style={customInputStyle} value={formData.model} onChange={(e) => handleSelectChange("model", e.target.value)}>
                 {models.map((modelOption) => (
                   <option key={modelOption} value={modelOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">{modelOption}</option>
                 ))}
               </select>
             </div>
-  
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="miles">Miles</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                id="miles"
-                className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                name="miles"
-                value={formData.miles}
-                onChange={handleChange}
-                placeholder="Enter miles"
-              />
+              <input type="text" inputMode="numeric" pattern="[0-9]*" id="miles" className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" name="miles" value={formData.miles} onChange={handleChange} placeholder="Enter miles" />
             </div>
-  
-            <button
-              type="submit"
-              className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
-              disabled={isLoading}
-            >
+            <button type="submit" className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50" disabled={isLoading}>
               {isLoading ? "Loading..." : "Next"}
             </button>
           </>
@@ -382,51 +326,19 @@ export default function TradeInForm() {
           <>
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="name">Name</label>
-              <input
-                type="text"
-                id="name"
-                className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Enter your name"
-              />
+              <input type="text" id="name" className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" name="name" value={formData.name} onChange={handleChange} placeholder="Enter your name" />
             </div>
-  
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="email">Email</label>
-              <input
-                type="email"
-                id="email"
-                className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="Enter your email"
-              />
+              <input type="email" id="email" className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" name="email" value={formData.email} onChange={handleChange} placeholder="Enter your email" />
             </div>
-  
             <div className="space-y-2">
               <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="phone">Phone</label>
-              <input
-                type="tel"
-                id="phone"
-                className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Enter your phone number"
-              />
+              <input type="tel" id="phone" className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" name="phone" value={formData.phone} onChange={handleChange} placeholder="Enter your phone number" />
             </div>
-  
-            <button
-              type="submit"
-              className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
-              disabled={isLoading}
-            >
+            <button type="submit" className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50" disabled={isLoading}>
               {isLoading ? "Submitting..." : "Get My Trade-In Value"}
             </button>
-  
             <p className="text-sm text-red-600 mt-2">
               Warning! Make sure your information is correct because we will text/email you the final report!
             </p>
