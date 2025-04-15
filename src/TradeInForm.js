@@ -30,12 +30,56 @@ const api = axios.create({
 });
 
 const states = [
-  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL",
-  "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA",
-  "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE",
-  "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK",
-  "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT",
-  "VA", "WA", "WV", "WI", "WY",
+  "AL",
+  "AK",
+  "AZ",
+  "AR",
+  "CA",
+  "CO",
+  "CT",
+  "DE",
+  "FL",
+  "GA",
+  "HI",
+  "ID",
+  "IL",
+  "IN",
+  "IA",
+  "KS",
+  "KY",
+  "LA",
+  "ME",
+  "MD",
+  "MA",
+  "MI",
+  "MN",
+  "MS",
+  "MO",
+  "MT",
+  "NE",
+  "NV",
+  "NH",
+  "NJ",
+  "NM",
+  "NY",
+  "NC",
+  "ND",
+  "OH",
+  "OK",
+  "OR",
+  "PA",
+  "RI",
+  "SC",
+  "SD",
+  "TN",
+  "TX",
+  "UT",
+  "VT",
+  "VA",
+  "WA",
+  "WV",
+  "WI",
+  "WY",
 ];
 
 export default function TradeInForm() {
@@ -54,67 +98,11 @@ export default function TradeInForm() {
   const [makes, setMakes] = useState([]);
   const [models, setModels] = useState([]);
 
-  // State to capture UTM parameters from the parent URL (with fallback)
-  const [utmData, setUtmData] = useState({
-    utm_source: "",
-    utm_medium: "",
-    utm_campaign: "",
-    utm_content: "",
-    utm_id: "",
-    utm_term: "",
-    fbclid: "",
-  });
-
   // Separate states for overlay spinner and button loading text
   const [isStarted, setIsStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  // -----------------------------
-  // UTMs EXTRACTION FROM PARENT URL (WITH FALLBACK AND MESSAGE RECEIVER)
-  // -----------------------------
-  useEffect(() => {
-    let searchString = "";
-    // Attempt to read from window.top.location.search
-    try {
-      if (window.top && window.top.location && window.top.location.search) {
-        searchString = window.top.location.search;
-      }
-    } catch (err) {
-      console.error("Accessing window.top.location.search failed", err);
-    }
-    // If still empty, try document.referrer
-    if (!searchString && document.referrer) {
-      try {
-        const refUrl = new URL(document.referrer);
-        searchString = refUrl.search;
-      } catch (error) {
-        console.error("Error parsing document.referrer", error);
-      }
-    }
-    // If we have a query string, extract UTMs
-    if (searchString) {
-      const urlParams = new URLSearchParams(searchString);
-      setUtmData({
-        utm_source: urlParams.get("utm_source") || "",
-        utm_medium: urlParams.get("utm_medium") || "",
-        utm_campaign: urlParams.get("utm_campaign") || "",
-        utm_content: urlParams.get("utm_content") || "",
-        utm_id: urlParams.get("utm_id") || "",
-        utm_term: urlParams.get("utm_term") || "",
-        fbclid: urlParams.get("fbclid") || "",
-      });
-    }
-    // Additionally, listen for messages from parent that might contain UTMs
-    function receiveMessage(event) {
-      // Optionally: Check event.origin if needed for security.
-      if (event.data && event.data.utmData) {
-        setUtmData(event.data.utmData);
-      }
-    }
-    window.addEventListener("message", receiveMessage, false);
-    return () => window.removeEventListener("message", receiveMessage);
-  }, []);
+  const [error, setError] = useState("");
 
   // -----------------------------
   // FETCH FUNCTIONS
@@ -176,7 +164,7 @@ export default function TradeInForm() {
         .then(async (res) => {
           const marketValueData = res.data.data.market_value.market_value_data;
 
-          // Convert data for the webhook
+          // Convert data for Make.com webhook
           const objectArray = marketValueData.map((item) => {
             const marketValueObject = item["market value"].reduce(
               (acc, curr) => {
@@ -196,31 +184,19 @@ export default function TradeInForm() {
             return acc;
           }, {});
 
-          // Build the payload and include UTM parameters as individual variables
-          const payload = {
-            marketValue: jsonObject,
-            form_data: formData,
-            utm_source: utmData.utm_source,
-            utm_medium: utmData.utm_medium,
-            utm_campaign: utmData.utm_campaign,
-            utm_content: utmData.utm_content,
-            utm_id: utmData.utm_id,
-            utm_term: utmData.utm_term,
-            fbclid: utmData.fbclid,
-          };
-
+          // Post to webhook
+          const payload = { marketValue: jsonObject, form_data: formData };
           const webhookRes = await axios.post(webhookUrl, payload);
 
           if (webhookRes.status === 200) {
-            // Build the final URL for redirection using the environment variable endUrl
+            // Build the final URL using the environment variable endUrl
             const finalUrl = new URL(endUrl);
             finalUrl.hash = "done";
             finalUrl.searchParams.set("utm_name", formData.name);
             finalUrl.searchParams.set("utm_email", formData.email);
             finalUrl.searchParams.set("utm_phone", formData.phone);
-            // Optionally, add more UTM info to the URL if needed
 
-            // Redirect the full window (not just inside the iframe)
+            // Redirect the full window (not just in an iframe)
             window.top.location.href = finalUrl.toString();
           }
         });
@@ -233,7 +209,7 @@ export default function TradeInForm() {
   };
 
   // -----------------------------
-  // HOOKS FOR INITIAL DATA FETCH
+  // HOOKS
   // -----------------------------
   useEffect(() => {
     fetchYears();
@@ -255,12 +231,14 @@ export default function TradeInForm() {
   // HANDLERS & VALIDATION
   // -----------------------------
   /**
-   * For the "miles" field, we use inputMode="numeric" with type="text" so that
-   * the browser doesn’t trigger native numeric validation errors.
-   * The input is sanitized by stripping out any non-digit characters.
+   * For the "miles" field, we switch to `type="text"` so the browser
+   * doesn't reject commas with a "must be a number" error. We then
+   * sanitize the input to remove commas (and any other non-digit chars).
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // If it's the miles field, remove commas and any non-digit characters
     if (name === "miles") {
       const sanitized = value.replace(/[^\d]/g, "");
       setFormData((prevData) => ({ ...prevData, miles: sanitized }));
@@ -309,7 +287,7 @@ export default function TradeInForm() {
     if (validateStep2()) {
       try {
         await fetchMarketValues();
-        // Reset the form after submission
+        // Reset the form
         setFormData({
           year: "",
           make: "",
@@ -333,7 +311,7 @@ export default function TradeInForm() {
   // RENDER
   // -----------------------------
   return (
-    // Container with no extra top margin
+    // The container now has no extra top margin
     <div className="w-full mx-auto p-5 bg-white rounded-lg shadow-md">
       {isStarted && (
         <div className="absolute top-0 left-0 h-screen w-screen opacity-70 bg-black">
@@ -342,12 +320,17 @@ export default function TradeInForm() {
           </div>
         </div>
       )}
+
       {error && <div className="text-red-600 mb-4">{error}</div>}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {step === 1 ? (
           <>
             <div className="space-y-2">
-              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="state">
+              <label
+                className="block text-left pl-3 text-sm font-medium text-gray-700"
+                htmlFor="state"
+              >
                 State
               </label>
               <select
@@ -357,14 +340,22 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("state", e.target.value)}
               >
                 {states.map((state) => (
-                  <option key={state} value={state} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
+                  <option
+                    key={state}
+                    value={state}
+                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
+                  >
                     {state}
                   </option>
                 ))}
               </select>
             </div>
+
             <div className="space-y-2">
-              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="year">
+              <label
+                className="block text-left pl-3 text-sm font-medium text-gray-700"
+                htmlFor="year"
+              >
                 Year
               </label>
               <select
@@ -374,14 +365,22 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("year", e.target.value)}
               >
                 {years.map((yearOption) => (
-                  <option key={yearOption} value={yearOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
+                  <option
+                    key={yearOption}
+                    value={yearOption}
+                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
+                  >
                     {yearOption}
                   </option>
                 ))}
               </select>
             </div>
+
             <div className="space-y-2">
-              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="make">
+              <label
+                className="block text-left pl-3 text-sm font-medium text-gray-700"
+                htmlFor="make"
+              >
                 Make
               </label>
               <select
@@ -391,14 +390,22 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("make", e.target.value)}
               >
                 {makes.map((makeOption) => (
-                  <option key={makeOption} value={makeOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
+                  <option
+                    key={makeOption}
+                    value={makeOption}
+                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
+                  >
                     {makeOption}
                   </option>
                 ))}
               </select>
             </div>
+
             <div className="space-y-2">
-              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="model">
+              <label
+                className="block text-left pl-3 text-sm font-medium text-gray-700"
+                htmlFor="model"
+              >
                 Model
               </label>
               <select
@@ -408,16 +415,29 @@ export default function TradeInForm() {
                 onChange={(e) => handleSelectChange("model", e.target.value)}
               >
                 {models.map((modelOption) => (
-                  <option key={modelOption} value={modelOption} className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center">
+                  <option
+                    key={modelOption}
+                    value={modelOption}
+                    className="text-sm text-gray-700 hover:bg-gray-100 w-full text-center"
+                  >
                     {modelOption}
                   </option>
                 ))}
               </select>
             </div>
+
             <div className="space-y-2">
-              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="miles">
+              <label
+                className="block text-left pl-3 text-sm font-medium text-gray-700"
+                htmlFor="miles"
+              >
                 Miles
               </label>
+              {/*
+                Use type="text" with inputMode="numeric" to bring up
+                a numeric keyboard on mobile, but not trigger
+                the native "Enter a number" HTML error.
+              */}
               <input
                 type="text"
                 inputMode="numeric"
@@ -430,6 +450,7 @@ export default function TradeInForm() {
                 placeholder="Enter miles"
               />
             </div>
+
             <button
               type="submit"
               className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
@@ -441,7 +462,10 @@ export default function TradeInForm() {
         ) : (
           <>
             <div className="space-y-2">
-              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="name">
+              <label
+                className="block text-left pl-3 text-sm font-medium text-gray-700"
+                htmlFor="name"
+              >
                 Name
               </label>
               <input
@@ -454,8 +478,12 @@ export default function TradeInForm() {
                 placeholder="Enter your name"
               />
             </div>
+
             <div className="space-y-2">
-              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="email">
+              <label
+                className="block text-left pl-3 text-sm font-medium text-gray-700"
+                htmlFor="email"
+              >
                 Email
               </label>
               <input
@@ -468,8 +496,12 @@ export default function TradeInForm() {
                 placeholder="Enter your email"
               />
             </div>
+
             <div className="space-y-2">
-              <label className="block text-left pl-3 text-sm font-medium text-gray-700" htmlFor="phone">
+              <label
+                className="block text-left pl-3 text-sm font-medium text-gray-700"
+                htmlFor="phone"
+              >
                 Phone
               </label>
               <input
@@ -482,6 +514,7 @@ export default function TradeInForm() {
                 placeholder="Enter your phone number"
               />
             </div>
+
             <button
               type="submit"
               className="w-full px-4 py-2 mt-2 text-white bg-black rounded-md shadow-sm hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
@@ -489,8 +522,10 @@ export default function TradeInForm() {
             >
               {isLoading ? "Submitting..." : "Get My Trade-In Value"}
             </button>
+
             <p className="text-sm text-red-600 mt-2">
-              Warning! Make sure your information is correct because we will text/email you the final report!
+              Warning! Make sure your information is correct because we will
+              text/email you the final report!
             </p>
           </>
         )}
