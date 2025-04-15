@@ -71,11 +71,11 @@ export default function TradeInForm() {
   const [error, setError] = useState("");
 
   // -----------------------------
-  // UTMs EXTRACTION FROM PARENT URL (WITH FALLBACK)
+  // UTMs EXTRACTION FROM PARENT URL (WITH FALLBACK AND MESSAGE RECEIVER)
   // -----------------------------
   useEffect(() => {
     let searchString = "";
-    // Try to get parameters from the top window if possible.
+    // Attempt to read from window.top.location.search
     try {
       if (window.top && window.top.location && window.top.location.search) {
         searchString = window.top.location.search;
@@ -83,7 +83,7 @@ export default function TradeInForm() {
     } catch (err) {
       console.error("Accessing window.top.location.search failed", err);
     }
-    // If searchString is still empty, try using document.referrer.
+    // If still empty, try document.referrer
     if (!searchString && document.referrer) {
       try {
         const refUrl = new URL(document.referrer);
@@ -92,7 +92,7 @@ export default function TradeInForm() {
         console.error("Error parsing document.referrer", error);
       }
     }
-    // If we have a query string, parse UTM parameters
+    // If we have a query string, extract UTMs
     if (searchString) {
       const urlParams = new URLSearchParams(searchString);
       setUtmData({
@@ -105,6 +105,15 @@ export default function TradeInForm() {
         fbclid: urlParams.get("fbclid") || "",
       });
     }
+    // Additionally, listen for messages from parent that might contain UTMs
+    function receiveMessage(event) {
+      // Optionally: Check event.origin if needed for security.
+      if (event.data && event.data.utmData) {
+        setUtmData(event.data.utmData);
+      }
+    }
+    window.addEventListener("message", receiveMessage, false);
+    return () => window.removeEventListener("message", receiveMessage);
   }, []);
 
   // -----------------------------
@@ -209,9 +218,9 @@ export default function TradeInForm() {
             finalUrl.searchParams.set("utm_name", formData.name);
             finalUrl.searchParams.set("utm_email", formData.email);
             finalUrl.searchParams.set("utm_phone", formData.phone);
-            // Optionally add UTM info here, if needed
+            // Optionally, add more UTM info to the URL if needed
 
-            // Redirect the full window (not just in an iframe)
+            // Redirect the full window (not just inside the iframe)
             window.top.location.href = finalUrl.toString();
           }
         });
@@ -246,8 +255,9 @@ export default function TradeInForm() {
   // HANDLERS & VALIDATION
   // -----------------------------
   /**
-   * For the "miles" field, we use inputMode="numeric" with type="text" to avoid native numeric validations,
-   * and then sanitize by stripping out any non-digit characters.
+   * For the "miles" field, we use inputMode="numeric" with type="text" so that
+   * the browser doesn’t trigger native numeric validation errors.
+   * The input is sanitized by stripping out any non-digit characters.
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -299,7 +309,7 @@ export default function TradeInForm() {
     if (validateStep2()) {
       try {
         await fetchMarketValues();
-        // Reset the form
+        // Reset the form after submission
         setFormData({
           year: "",
           make: "",
